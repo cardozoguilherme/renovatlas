@@ -1,0 +1,24 @@
+# Dados brutos pesados (regeneraveis pelos scripts de coleta)
+data/raw/
+data/external/*.zip
+# (a malha pb_municipios.gpkg/.geojson em data/external e versionada,
+#  pois o dashboard e os mapas precisam dela)
+
+# Experimentos do MLflow
+mlruns/
+mlartifacts/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Sistema
+.DS_Store
+Thumbs.db
