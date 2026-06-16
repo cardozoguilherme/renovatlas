@@ -43,6 +43,10 @@ README.md
 
 ## Como executar
 
+Há duas formas. O ambiente local roda todo o pipeline, da coleta ao treino, e é o usado
+no desenvolvimento. O Docker sobe apenas o dashboard com a solução já pronta, sem instalar
+nada na máquina, e serve para demonstrar e entregar o projeto de forma reproduzível.
+
 ### Ambiente local
 
 Pré-requisito: Python 3.10 ou mais novo.
@@ -66,14 +70,23 @@ mlflow ui
 streamlit run app/dashboard.py
 ```
 
-### Com Docker
+### Com Docker (serve o dashboard de forma reproduzível)
+
+O Docker empacota a solução junto com o ambiente (Python e todas as bibliotecas) numa
+imagem, permitindo subir o dashboard sem instalar nada na máquina. É a forma de entregar a
+solução de maneira reproduzível, exigida pela disciplina (conteinerização).
+
+A imagem usa os dados já processados e os modelos já treinados que estão no repositório, ou
+seja, o container sobe direto o dashboard com os resultados prontos. Ele não refaz a coleta
+nem o treino, que dependem de internet e rodam no ambiente local descrito acima.
 
 ```
-docker build -t renovatlas .
-docker run -p 8501:8501 renovatlas
+docker build -t renovatlas .        # constroi a imagem (instala as dependencias e copia o projeto)
+docker run -p 8501:8501 renovatlas  # sobe o dashboard
 ```
 
-O dashboard fica disponível em http://localhost:8501.
+Depois, abra http://localhost:8501 no navegador. Em resumo: use o Docker para demonstrar a
+solução pronta e use o ambiente local para refazer a coleta, o treino e os experimentos.
 
 ## Documentos
 
