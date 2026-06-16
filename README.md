@@ -14,7 +14,7 @@ dashboard interativo, com rastreamento de experimentos e ambiente reproduzível.
 
 ## Email
 
--
+- gccm@cesar.school
 - hlqg@cesar.school
 - rlm2@cesar.school
 
