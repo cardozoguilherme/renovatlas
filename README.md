@@ -110,4 +110,5 @@ solução pronta e use o ambiente local para refazer a coleta, o treino e os exp
 
 numpy, pandas, scipy, scikit-learn, matplotlib, pykrige, geopandas, requests, mlflow e
 streamlit. 
+
 As versões estão fixadas em requirements.txt.
