@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Interpolation methods (IDW and Ordinary Kriging) and leave-one-out
-cross-validation to reproduce Table 2 (IDW vs Kriging error comparison).
+"""Metodos de interpolacao espacial (IDW e Kriging Ordinario) e validacao cruzada do tipo
+deixa-um-de-fora (leave-one-out) para reproduzir a Tabela 2 do artigo (comparacao de erro
+entre IDW e Kriging).
 
-IDW uses the corrected inverse-distance weighting: w_i = 1/d_i^p (the paper's
-printed Eq. 2 has d^2 in the numerator, which is a typo). Kriging uses an
-exponential variogram (paper Eq. 3) restricted to the k closest neighbours.
+O IDW usa a forma correta do peso pelo inverso da distancia: w_i = 1/d_i^p (a Eq. 2 impressa
+no artigo tem d^2 no numerador, o que e um erro de digitacao). O Kriging usa um variograma
+exponencial (Eq. 3 do artigo), restrito aos k vizinhos mais proximos.
+
+Etapa de SELECAO DO METODO (reproducao). Corresponde a Secao 3 e Tabela 2 do artigo.
 """
 import sys, os
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +24,9 @@ import config
 
 
 def idw_interpolate(xy_known, z_known, xy_target, k=config.N_NEIGHBORS, power=config.IDW_POWER):
+    """Interpola por IDW (inverso da distancia). Para cada ponto alvo, pega os k vizinhos
+    mais proximos e faz a media ponderada pelos pesos 1/distancia^p: quanto mais perto o
+    vizinho, maior o peso. O cKDTree acelera a busca dos vizinhos."""
     tree = cKDTree(xy_known)
     k = min(k, len(xy_known))
     dist, idx = tree.query(xy_target, k=k)
@@ -28,13 +34,16 @@ def idw_interpolate(xy_known, z_known, xy_target, k=config.N_NEIGHBORS, power=co
         dist, idx = dist[:, None], idx[:, None]
     with np.errstate(divide="ignore"):
         w = 1.0 / np.power(dist, power)
-    w[~np.isfinite(w)] = 1e12          # exact coincidence -> dominant weight
+    w[~np.isfinite(w)] = 1e12          # se o alvo coincide com um vizinho (dist=0), peso dominante
     z = z_known[idx]
     return np.sum(w * z, axis=1) / np.sum(w, axis=1)
 
 
 def kriging_interpolate(xy_known, z_known, xy_target, k=config.N_NEIGHBORS,
                         variogram=config.KRIGING_VARIOGRAM):
+    """Interpola por Kriging Ordinario com variograma exponencial, usando os k vizinhos
+    mais proximos (n_closest_points). O Kriging modela a correlacao espacial e estima o
+    valor com a menor variancia possivel. Usa a biblioteca pykrige."""
     OK = OrdinaryKriging(xy_known[:, 0], xy_known[:, 1], z_known,
                          variogram_model=variogram, coordinates_type="euclidean",
                          verbose=False, enable_plotting=False)
@@ -45,22 +54,28 @@ def kriging_interpolate(xy_known, z_known, xy_target, k=config.N_NEIGHBORS,
 
 
 def _xyz(df, value_col):
+    """Separa as coordenadas (lon, lat) e os valores de uma coluna, ignorando linhas sem valor."""
     sub = df.dropna(subset=[value_col])
     return sub[["lon", "lat"]].values, sub[value_col].values
 
 
 def loocv(df, value_col, method, k=config.N_NEIGHBORS):
+    """Validacao cruzada deixa-um-de-fora: para cada ponto, estima seu valor usando todos
+    os outros (com IDW ou Kriging) e guarda a previsao. Retorna os valores reais e os
+    previstos, para depois medir o erro."""
     xy, z = _xyz(df, value_col)
     n = len(z)
     pred = np.full(n, np.nan)
     for i in range(n):
-        tr = np.arange(n) != i
+        tr = np.arange(n) != i            # treina com todos os pontos menos o i
         fn = idw_interpolate if method == "idw" else kriging_interpolate
         pred[i] = fn(xy[tr], z[tr], xy[i:i + 1], k=k)[0]
     return z, pred
 
 
 def metrics(y, yhat):
+    """Calcula as tres metricas de erro: RMSE (raiz do erro quadratico medio), MAE (erro
+    absoluto medio) e R2 (coeficiente de determinacao)."""
     e = yhat - y
     return dict(RMSE=float(np.sqrt(np.mean(e ** 2))),
                 MAE=float(np.mean(np.abs(e))),
@@ -68,6 +83,8 @@ def metrics(y, yhat):
 
 
 def reproduce_table2(points_csv, label):
+    """Roda a validacao cruzada para vento e radiacao, com IDW e Kriging, e monta a tabela
+    de comparacao (a Tabela 2 do artigo). Salva em outputs/tables."""
     df = pd.read_csv(points_csv)
     rows = []
     specs = [(config.WIND, "WIND_SPEED (m/s)"), (config.SOLAR, "SOLAR_IRRAD (kWh/m2)")]
@@ -86,6 +103,7 @@ def reproduce_table2(points_csv, label):
 
 
 if __name__ == "__main__":
+    # Gera a Tabela 2 para as duas bases (NASA e INMET).
     for lbl in ("nasa", "inmet"):
         pts = config.PROCESSED / ("%s_points.csv" % lbl)
         if pts.exists():

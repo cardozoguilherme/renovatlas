@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Paraiba Hybrid Generation Potential Index (IP-PB).
+"""Indice de Potencial de Geracao Hibrida da Paraiba (IP-PB).
 
-Steps (paper Section 2.4 / 4.2):
-  1. Max-Min normalise WIND_SPEED (x) and SOLAR_IRRAD (y) over the MM grid (Eq.7).
-  2. Group the MM-grid points by municipality (mean x, y) -> 223 municipalities.
-  3. IP-PB = sqrt(x^2 + y^2)  (euclidean norm; max sqrt(2) ~ 1.4142).
-  4. Split municipalities by the medians of x and y into Good/Bad x Good/Bad
-     groups (labelled Wind/Solar) and build solar / wind / hybrid top-10 rankings.
+Etapas (Secoes 2.4 e 4.2 do artigo):
+  1. Normaliza WIND_SPEED (eixo x) e SOLAR_IRRAD (eixo y) entre 0 e 1, sobre o MM grid (Eq.7).
+  2. Agrupa os pontos do MM grid por municipio (media de x e y) -> 223 municipios.
+  3. IP-PB = raiz(x^2 + y^2)  (norma euclidiana; maximo raiz(2) ~ 1,4142).
+  4. Divide os municipios pelas medianas de x e y em quatro grupos (Bom/Ruim para vento x
+     Bom/Ruim para solar) e monta os rankings dos 10 melhores para solar, vento e hibrido.
+
+Etapa do INDICE IP-PB (reproducao).
 """
 import sys, os
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -24,17 +26,22 @@ W, S = config.WIND, config.SOLAR
 
 
 def compute_ip_pb(mm_csv, points_csv, label):
+    """Normaliza as variaveis, agrupa por municipio, calcula o IP-PB e separa os municipios
+    em grupos pelas medianas. Salva ip_pb_<label>.csv e devolve a tabela por municipio."""
     mm = pd.read_csv(mm_csv)
     mm["code"] = mm["code"].astype(str)
+    # Normalizacao Max-Min (Eq. 7): coloca vento (x) e radiacao (y) entre 0 e 1.
     wmin, wmax = mm[W].min(), mm[W].max()
     smin, smax = mm[S].min(), mm[S].max()
     mm["x"] = (mm[W] - wmin) / (wmax - wmin)
     mm["y"] = (mm[S] - smin) / (smax - smin)
+    # Agrupa os pontos da grade por municipio (media), reduzindo a ~223 municipios.
     muni = (mm.groupby(["code", "name"])
             .agg(x=("x", "mean"), y=("y", "mean"), WIND_SPEED=(W, "mean"),
                  SOLAR_IRRAD=(S, "mean"), n_points=("x", "size")).reset_index())
 
-    # cover municipalities with no grid point via their centroid
+    # Municipios pequenos que nao receberam nenhum ponto da grade sao preenchidos pelo valor
+    # interpolado no seu centroide, para fechar os 223 municipios.
     mun = gpd.read_file(config.EXTERNAL / "pb_municipios.gpkg").to_crs("EPSG:4326")
     mun["code"] = mun["code"].astype(str)
     missing = mun[~mun["code"].isin(muni["code"])]
@@ -52,11 +59,13 @@ def compute_ip_pb(mm_csv, points_csv, label):
         muni = pd.concat([muni, add], ignore_index=True)
         print("  added %d municipalities via centroid" % len(missing))
 
+    # IP-PB = norma euclidiana do ponto (x, y): premia quem tem bom vento E bom sol.
     muni["IP_PB"] = np.sqrt(muni["x"] ** 2 + muni["y"] ** 2)
+    # Divide os municipios pela mediana de cada eixo em Bom/Ruim, formando 4 grupos.
     mx, my = muni["x"].median(), muni["y"].median()
     muni["wind_cls"] = np.where(muni["x"] >= mx, "Good", "Bad")
     muni["solar_cls"] = np.where(muni["y"] >= my, "Good", "Bad")
-    muni["group"] = muni["wind_cls"] + "/" + muni["solar_cls"]  # Wind/Solar
+    muni["group"] = muni["wind_cls"] + "/" + muni["solar_cls"]  # rotulo no formato Vento/Solar
     muni = muni.sort_values("IP_PB", ascending=False).reset_index(drop=True)
     muni.to_csv(config.PROCESSED / ("ip_pb_%s.csv" % label), index=False)
     print("  IP-PB %s: municipalities=%d  median(x,y)=(%.3f,%.3f)  IP-PB max=%.4f" %
@@ -66,6 +75,9 @@ def compute_ip_pb(mm_csv, points_csv, label):
 
 
 def rankings(muni, label):
+    """Monta os rankings dos 10 melhores municipios: solar (maior radiacao entre os de bom
+    sol), vento (maior vento entre os de bom vento) e hibrido (maior IP-PB no grupo
+    Bom/Bom). Salva cada ranking em outputs/tables."""
     solar = (muni[muni["solar_cls"] == "Good"].sort_values("SOLAR_IRRAD", ascending=False)
              .head(10)[["name", "SOLAR_IRRAD", "group", "IP_PB"]])
     wind = (muni[muni["wind_cls"] == "Good"].sort_values("WIND_SPEED", ascending=False)
@@ -81,6 +93,7 @@ def rankings(muni, label):
 
 
 def run(label):
+    """Roda o calculo do IP-PB e os rankings para uma base (nasa ou inmet)."""
     mm = config.PROCESSED / ("mm_grid_%s.csv" % label)
     pts = config.PROCESSED / ("%s_points.csv" % label)
     if not mm.exists():

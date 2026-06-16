@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Build the MM (Multi-Map) grid: 0.05-degree points inside the Paraiba polygon
-(~2054 expected), tagged with their municipality, then interpolate WIND_SPEED and
-SOLAR_IRRAD onto them by Ordinary Kriging from the NASA and INMET point sets."""
+"""Monta a grade MM (Multi-Map): pontos de 0,05 grau dentro do poligono da Paraiba (cerca
+de 2054 esperados pelo artigo; ~2016 obtidos aqui), cada um marcado com o seu municipio.
+Em seguida, interpola WIND_SPEED e SOLAR_IRRAD para esses pontos por Kriging, a partir dos
+conjuntos de pontos da NASA e do INMET.
+
+Etapa de CONSTRUCAO DO MM GRID (reproducao). Corresponde a Secao 4.1 do artigo.
+"""
 import sys, os
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
@@ -13,10 +17,14 @@ import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Point
 import config
-from interpolation import kriging_interpolate
+from interpolation import kriging_interpolate   # reaproveita o Kriging do modulo de interpolacao
 
 
 def build_pb_grid():
+    """Cria a grade regular de 0,05 grau no retangulo que envolve a Paraiba e mantem so os
+    pontos que caem dentro do estado, marcando o municipio de cada um. Pontos a ate meia
+    celula da borda sao atribuidos ao municipio mais proximo (para nao perder a faixa de
+    fronteira). Retorna um GeoDataFrame com lon, lat, nome e codigo do municipio."""
     mun = gpd.read_file(config.EXTERNAL / "pb_municipios.gpkg").to_crs("EPSG:4326")
     b = config.PB_BBOX
     lats = np.round(np.arange(round(b["lat_min"], 2), b["lat_max"] + 1e-9, config.MM_RES), 3)
@@ -25,8 +33,8 @@ def build_pb_grid():
     gdf = gpd.GeoDataFrame(
         {"lon": [p[0] for p in pts], "lat": [p[1] for p in pts]},
         geometry=[Point(p) for p in pts], crs="EPSG:4326")
-    # assign each point to the municipality that contains it, or (for border
-    # points within half a cell of the boundary) to the nearest municipality.
+    # sjoin_nearest liga cada ponto ao municipio que o contem ou, para pontos a ate meia
+    # celula da borda, ao municipio mais proximo.
     joined = gpd.sjoin_nearest(gdf, mun[["name", "code", "geometry"]],
                                max_distance=config.MM_RES * 0.5, how="inner")
     joined = (joined.drop(columns=["index_right"])
@@ -36,6 +44,8 @@ def build_pb_grid():
 
 
 def interpolate_grid(grid, points_csv, label):
+    """Interpola vento e radiacao para todos os pontos da grade, por Kriging, usando os
+    pontos de origem (NASA ou INMET). Salva mm_grid_<label>.csv."""
     src = pd.read_csv(points_csv)
     g = grid.copy()
     target = g[["lon", "lat"]].values
@@ -54,6 +64,7 @@ def interpolate_grid(grid, points_csv, label):
 
 
 def main():
+    # Monta a grade uma vez (salva os pontos) e interpola para NASA e/ou INMET.
     grid = build_pb_grid()
     grid.drop(columns="geometry").to_csv(config.PROCESSED / "mm_grid_points.csv", index=False)
     which = sys.argv[1] if len(sys.argv) > 1 else "all"

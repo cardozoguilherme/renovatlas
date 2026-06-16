@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Generate figures reproducing the paper: MM-grid maps (Figs 5-8), municipality
-IP-PB scatter with Good/Bad groups (Figs 10-13), top-10 maps (Figs 14-15) and the
-NASA-vs-INMET IP-PB correlation (Fig 16)."""
+"""Gera as figuras que reproduzem o artigo: mapas do MM grid (Figs 5-8), dispersao dos
+municipios no plano vento x solar com os grupos (Figs 10-13), mapa dos 10 melhores
+municipios (Figs 14-15) e a correlacao do IP-PB entre NASA e INMET (Fig 16).
+
+Etapa de FIGURAS (reproducao). Usa o backend "Agg" do matplotlib para salvar PNG sem
+abrir janela.
+"""
 import sys, os
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
@@ -12,19 +16,23 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import matplotlib
-matplotlib.use("Agg")
+matplotlib.use("Agg")   # backend sem interface grafica (apenas salva arquivos)
 import matplotlib.pyplot as plt
 import config
 
+# Cores de cada grupo (rotulo Vento/Solar) usadas na dispersao.
 GROUP_COLORS = {"Good/Good": "#2ca02c", "Good/Bad": "#1f77b4",
                 "Bad/Good": "#ff7f0e", "Bad/Bad": "#d62728"}
 
 
 def _municipios():
+    """Carrega a malha dos municipios da Paraiba (para desenhar os contornos nos mapas)."""
     return gpd.read_file(config.EXTERNAL / "pb_municipios.gpkg").to_crs("EPSG:4326")
 
 
 def plot_mm_maps(label):
+    """Desenha os mapas do MM grid: um para a radiacao solar e outro para o vento, com os
+    pontos da grade coloridos pelo valor e o contorno dos municipios por cima."""
     mm = pd.read_csv(config.PROCESSED / ("mm_grid_%s.csv" % label))
     mun = _municipios()
     specs = [(config.SOLAR, "SOLAR_IRRAD (kWh/m2/day)", "YlOrRd"),
@@ -43,13 +51,15 @@ def plot_mm_maps(label):
 
 
 def plot_scatter(label):
+    """Dispersao dos municipios no plano vento (x) contra solar (y), com cada grupo numa cor
+    e as linhas das medianas. Evidencia o padrao de troca entre as duas fontes."""
     muni = pd.read_csv(config.PROCESSED / ("ip_pb_%s.csv" % label))
     mx, my = muni["x"].median(), muni["y"].median()
     fig, ax = plt.subplots(figsize=(6.2, 6))
     for grp, c in GROUP_COLORS.items():
         s = muni[muni["group"] == grp]
         ax.scatter(s["x"], s["y"], c=c, s=18, label="%s (n=%d)" % (grp, len(s)), alpha=0.8)
-    ax.axvline(mx, color="k", lw=0.8); ax.axhline(my, color="k", lw=0.8)
+    ax.axvline(mx, color="k", lw=0.8); ax.axhline(my, color="k", lw=0.8)  # linhas das medianas
     ax.set_xlabel("WIND_SPEED (normalized)"); ax.set_ylabel("SOLAR_IRRAD (normalized)")
     ax.set_title("IP-PB municipalities (%s) — groups Wind/Solar" % label.upper())
     ax.legend(fontsize=8, loc="lower left")
@@ -59,6 +69,8 @@ def plot_scatter(label):
 
 
 def plot_top10_map(label):
+    """Mapa destacando os 10 melhores municipios para solar (laranja), vento (azul) e
+    hibrido (verde) sobre o contorno do estado."""
     muni = pd.read_csv(config.PROCESSED / ("ip_pb_%s.csv" % label))
     mun = _municipios()
     mun["code"] = mun["code"].astype(str); muni["code"] = muni["code"].astype(str)
@@ -85,6 +97,8 @@ def plot_top10_map(label):
 
 
 def plot_correlation():
+    """Dispersao do IP-PB de cada municipio calculado com NASA (x) contra INMET (y), com a
+    reta de igualdade. Mostra o quanto as duas bases concordam (correlacao r)."""
     fn_n = config.PROCESSED / "ip_pb_nasa.csv"
     fn_i = config.PROCESSED / "ip_pb_inmet.csv"
     if not (fn_n.exists() and fn_i.exists()):
@@ -98,7 +112,7 @@ def plot_correlation():
     fig, ax = plt.subplots(figsize=(6, 6))
     ax.scatter(m["IP_NASA"], m["IP_INMET"], s=16, alpha=0.7)
     lim = [min(m["IP_NASA"].min(), m["IP_INMET"].min()), max(m["IP_NASA"].max(), m["IP_INMET"].max())]
-    ax.plot(lim, lim, "k--", lw=1, label="equality")
+    ax.plot(lim, lim, "k--", lw=1, label="equality")  # reta y=x (concordancia perfeita)
     ax.set_xlabel("IP-PB (NASA)"); ax.set_ylabel("IP-PB (INMET)")
     ax.set_title("IP-PB correlation NASA vs INMET (r=%.3f)" % r)
     ax.legend(fontsize=9)
@@ -109,6 +123,7 @@ def plot_correlation():
 
 
 def run(label):
+    """Gera os mapas e a dispersao de uma base (nasa ou inmet)."""
     print("=== plots:", label, "===")
     plot_mm_maps(label)
     plot_scatter(label)
