@@ -9,13 +9,15 @@ dashboard interativo, com rastreamento de experimentos e ambiente reproduzível.
 ## Equipe
 
 - Guilherme Cardozo de Castro Melo (@cardozoguilherme)
-- Henrique Lobo Queiroz Guimarães
-- Rodrigo Leal Marques
+- Henrique Lobo Queiroz Guimarães (@Henriquelbqg)
+- Rodrigo Leal Marques (@Rodrigo1m)
 
 ## Disciplina e instituição
 
-Machine Learning I e Projeto 3.
-CESAR School.
+Machine Learning I, CESAR School.
+
+No lugar do componente Projetos 6, o grupo optou por desenvolver o trabalho a partir de um
+artigo científico indicado pelo professor, descrito na seção a seguir.
 
 ## Sobre a solução
 
@@ -90,6 +92,7 @@ solução pronta e use o ambiente local para refazer a coleta, o treino e os exp
 
 ## Documentos
 
+- EXPLICACAO.md: explicação completa do projeto, de ponta a ponta (dados, EDA, modelagem, comparação de modelos, MLflow, dashboard, Docker e arquitetura). É o documento mais abrangente.
 - ARQUITETURA.md: o que é e para que serve cada diretório e arquivo.
 - REPRODUCTION_REPORT.md: a reprodução do artigo, com instalação e comparação.
 - CONTRIBUICAO.md: a contribuição do grupo (ML e complementaridade temporal).
