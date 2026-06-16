@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Explore the INMET automatic-station catalog: list stations in PB/CE/PE/RN
-within the collection bbox and probe the per-station data API format."""
+"""Script de APOIO (investigacao; nao faz parte do pipeline). Explora o catalogo de estacoes
+automaticas do INMET: lista as estacoes de PB/CE/PE/RN dentro da caixa de coleta e testa o
+formato da API de dados por estacao (que se mostrou instavel, motivando o uso dos zips)."""
 import sys, os, json, time, urllib.request
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
@@ -11,6 +12,7 @@ import config
 
 
 def get_json(url, timeout=60):
+    """Baixa e converte um JSON de uma URL."""
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode())
@@ -23,6 +25,7 @@ bb = config.COLLECT_BBOX
 
 
 def inbb(s):
+    """Verifica se a estacao esta dentro da caixa de coleta."""
     try:
         la = float(s["VL_LATITUDE"]); lo = float(s["VL_LONGITUDE"])
     except Exception:
@@ -37,7 +40,8 @@ for s in sorted(selb, key=lambda s: (s["SG_ESTADO"], s["DC_NOME"])):
         s["SG_ESTADO"], s["CD_ESTACAO"], s["VL_LATITUDE"], s["VL_LONGITUDE"],
         str(s.get("DT_INICIO_OPERACAO", ""))[:10], s["DC_NOME"]))
 
-# probe per-station data API on one PB station
+# Testa a API de dados por estacao em uma estacao da PB. Foi assim que descobrimos que ela
+# estava instavel, o que levou a usar os zips anuais do portal historico.
 pb = [s for s in selb if s["SG_ESTADO"] == "PB"]
 if pb:
     cod = pb[0]["CD_ESTACAO"]
