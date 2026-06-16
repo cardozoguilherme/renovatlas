@@ -16,7 +16,7 @@ dashboard interativo, com rastreamento de experimentos e ambiente reproduzível.
 
 -
 - hlqg@cesar.school
--
+- rlm2@cesar.school
 
 ## Disciplina e instituição
 
