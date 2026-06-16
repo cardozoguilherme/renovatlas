@@ -22,6 +22,8 @@ dashboard interativo, com rastreamento de experimentos e ambiente reproduzível.
 
 Machine Learning I, CESAR School.
 
+Profesor: Diego Bezerra
+
 No lugar do componente Projetos 6, o grupo optou por desenvolver o trabalho a partir de um
 artigo científico indicado pelo professor, descrito na seção a seguir.
 
