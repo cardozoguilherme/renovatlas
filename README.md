@@ -12,6 +12,12 @@ dashboard interativo, com rastreamento de experimentos e ambiente reproduzível.
 - Henrique Lobo Queiroz Guimarães (@Henriquelbqg)
 - Rodrigo Leal Marques (@Rodrigo1m)
 
+## Email
+
+-
+- hlqg@cesar.school
+-
+
 ## Disciplina e instituição
 
 Machine Learning I, CESAR School.
