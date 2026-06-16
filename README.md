@@ -94,7 +94,7 @@ solução pronta e use o ambiente local para refazer a coleta, o treino e os exp
 
 - EXPLICACAO.md: explicação completa do projeto, de ponta a ponta (dados, EDA, modelagem, comparação de modelos, MLflow, dashboard, Docker e arquitetura). É o documento mais abrangente.
 - ARQUITETURA.md: o que é e para que serve cada diretório e arquivo.
-- REPRODUCTION_REPORT.md: a reprodução do artigo, com instalação e comparação.
+- REPRODUCTION_REPORT.md: a reprodução do artigo e com instalação e comparação.
 - CONTRIBUICAO.md: a contribuição do grupo (ML e complementaridade temporal).
 - IDEIAS_DE_CONTRIBUICAO.md: propostas de continuação.
 
