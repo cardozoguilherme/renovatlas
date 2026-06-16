@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """Dashboard interativo do RenovAtlas (Streamlit).
 
-Mostra: mapa de potencial (vento, sol, IP-PB e indice hibrido), comparacao das metricas
-dos modelos treinados (rastreados no MLflow), previsao interativa por coordenada e os
-rankings de municipios.
+Quatro abas: mapa de potencial (vento, sol, IP-PB e indice hibrido), comparacao das
+metricas dos modelos treinados (rastreados no MLflow), previsao interativa por coordenada
+e os rankings de municipios. Rodar com: streamlit run app/dashboard.py
 """
 import sys, os
+# Permite importar o config.py (na pasta acima) e os modulos de src/.
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
 for _p in (_ROOT, os.path.join(_ROOT, "src")):
@@ -29,23 +30,28 @@ T = config.TABLES
 FEATURES = ["lon", "lat", "elev", "dist_coast"]
 
 
+# st.cache_data evita reler os arquivos a cada interacao do usuario (deixa o app mais rapido).
 @st.cache_data
 def load_csv(path):
+    """Le um CSV se ele existir; senao devolve None."""
     return pd.read_csv(path) if os.path.exists(path) else None
 
 
 @st.cache_data
 def load_municipios():
+    """Carrega a malha dos municipios (para desenhar os mapas)."""
     return gpd.read_file(config.EXTERNAL / "pb_municipios.gpkg").to_crs("EPSG:4326")
 
 
 @st.cache_resource
 def load_model(source, target):
+    """Carrega o melhor modelo treinado (.joblib) de uma base e variavel, para a previsao."""
     fn = config.ROOT / "models" / ("best_%s_%s.joblib" % (source, target))
     return joblib.load(fn) if fn.exists() else None
 
 
 def map_layer(mun, pts, value, title, cmap):
+    """Desenha um mapa: pontos da grade coloridos por um valor, com o contorno dos municipios."""
     fig, ax = plt.subplots(figsize=(7, 4.5))
     mun.boundary.plot(ax=ax, color="0.6", linewidth=0.4)
     sc = ax.scatter(pts["lon"], pts["lat"], c=value, cmap=cmap, s=7, marker="s")
@@ -59,21 +65,25 @@ def map_layer(mun, pts, value, title, cmap):
 st.title("RenovAtlas")
 st.caption("Potencial de geração de energia renovável (solar, eólica e híbrida) na Paraíba")
 
+# Quatro abas do painel.
 tab_map, tab_models, tab_pred, tab_rank = st.tabs(
     ["Mapa de potencial", "Modelos", "Previsão", "Rankings"])
 
-# ---------------------------------------------------------------- Mapa
+# ---------------------------------------------------------------- Aba 1: Mapa de potencial
 with tab_map:
+    # O usuario escolhe a base (NASA/INMET) e a camada a mostrar.
     c1, c2 = st.columns(2)
     source = c1.selectbox("Base de dados", ["nasa", "inmet"], key="map_src")
     layer = c2.selectbox("Camada", ["SOLAR_IRRAD", "WIND_SPEED", "IP-PB", "IP-Hibrido (IPH)"], key="map_layer")
     mun = load_municipios()
     if layer in ("SOLAR_IRRAD", "WIND_SPEED"):
+        # camadas de recurso: pontos do MM grid coloridos pelo valor
         grid = load_csv(P / ("mm_grid_%s.csv" % source))
         if grid is not None:
             cmap = "YlOrRd" if layer == "SOLAR_IRRAD" else "viridis"
             st.pyplot(map_layer(mun, grid, grid[layer], "%s (%s)" % (layer, source.upper()), cmap))
     elif layer == "IP-PB":
+        # IP-PB por municipio (mapa coropletico)
         muni = load_csv(P / ("ip_pb_%s.csv" % source))
         g = mun.merge(muni.astype({"code": str}), left_on="code", right_on="code", how="left")
         fig, ax = plt.subplots(figsize=(7, 4.5))
@@ -81,6 +91,7 @@ with tab_map:
         ax.set_title("IP-PB por municipio (%s)" % source.upper()); ax.set_aspect("equal")
         st.pyplot(fig)
     else:
+        # indice hibrido IPH por municipio (a contribuicao do grupo)
         muni = load_csv(P / ("hybrid_index_%s.csv" % source))
         g = mun.merge(muni.astype({"code": str}), on="code", how="left")
         fig, ax = plt.subplots(figsize=(7, 4.5))
@@ -88,12 +99,13 @@ with tab_map:
         ax.set_title("Indice hibrido IPH por municipio (%s)" % source.upper()); ax.set_aspect("equal")
         st.pyplot(fig)
 
-# ---------------------------------------------------------------- Modelos
+# ---------------------------------------------------------------- Aba 2: Modelos (MLflow)
 with tab_models:
     st.subheader("Comparação dos modelos (rastreado no MLflow)")
     cmp = load_csv(T / "model_comparison.csv")
     if cmp is not None:
         st.dataframe(cmp, width="stretch")
+        # graficos de RMSE e R2 dos modelos para a base/variavel escolhida
         c1, c2 = st.columns(2)
         src = c1.selectbox("Base", sorted(cmp["source"].unique()), key="mdl_src")
         tgt = c2.selectbox("Variável", sorted(cmp["target"].unique()), key="mdl_tgt")
@@ -104,21 +116,24 @@ with tab_models:
     else:
         st.info("Rode `python src/train.py` para gerar a comparação de modelos.")
 
-# ---------------------------------------------------------------- Previsão
+# ---------------------------------------------------------------- Aba 3: Previsao por coordenada
 with tab_pred:
     st.subheader("Previsão por coordenada")
     b = config.PB_BBOX
+    # o usuario escolhe lat/lon nos controles deslizantes
     c1, c2 = st.columns(2)
     lat = c1.slider("Latitude", float(b["lat_min"]), float(b["lat_max"]), -7.12, 0.01)
     lon = c2.slider("Longitude", float(b["lon_min"]), float(b["lon_max"]), -35.0, 0.01)
     cov = load_csv(P / "mm_grid_cov.csv")
     if cov is not None:
+        # acha o ponto de grade mais proximo (que ja tem elevacao e distancia a costa)
         tree = cKDTree(cov[["lon", "lat"]].values)
         _, idx = tree.query([lon, lat], k=1)
         near = cov.iloc[idx]
         feat = pd.DataFrame([[near["lon"], near["lat"], near["elev"], near["dist_coast"]]], columns=FEATURES)
         st.write("Ponto de grade mais próximo: elevação %.0f m, distância à costa %.0f km" %
                  (near["elev"], near["dist_coast"]))
+        # aplica o melhor modelo (base NASA) para prever vento e radiacao naquele ponto
         cols = st.columns(2)
         for i, target in enumerate((config.WIND, config.SOLAR)):
             model = load_model("nasa", target)
@@ -129,9 +144,10 @@ with tab_pred:
             else:
                 cols[i].info("Modelo não encontrado. Rode src/train.py.")
 
-# ---------------------------------------------------------------- Rankings
+# ---------------------------------------------------------------- Aba 4: Rankings
 with tab_rank:
     src = st.selectbox("Base de dados", ["nasa", "inmet"], key="rank_src")
+    # mostra os top-10 de solar, eolico e hibrido lado a lado
     cols = st.columns(3)
     for col, kind, title in zip(cols, ["solar", "wind", "hybridplus"],
                                 ["Solar", "Eólico", "Híbrido (IPH)"]):
