@@ -27,8 +27,6 @@ interpolação por IDW e Kriging, construção de um mapa de alta resolução e 
 estimativa das variáveis e com um índice de geração híbrida que considera a
 complementaridade temporal entre vento e sol.
 
-Site do projeto (Google Sites): a definir.
-
 ## Estrutura do repositório
 
 ```
